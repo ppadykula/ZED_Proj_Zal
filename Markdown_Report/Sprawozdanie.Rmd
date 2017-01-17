@@ -1,0 +1,34 @@
+---
+title: "PROJ_ZAL_2_PP"
+author: "piotr"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r globalSettings, echo=FALSE, message=FALSE}
+library(EDAWR)
+library(knitr)
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Krótkie podsumowanie danych w zbiorze
+
+```{r WczytywanieDanych, cache=TRUE}
+#kable(summary(tb))
+```
+
+```{r czyszczenie}
+#data <- tb %>%
+    # Wartości pustych nie zamieniamy na zera! Choć można to zrobić jak poniżej
+    # replace(is.na(.), 0) %>%
+    # Kolumny child, adult, elderly, zamienione na zmienną nominalną
+    #gather(age, cases, child:elderly)
+```
