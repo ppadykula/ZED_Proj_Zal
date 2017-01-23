@@ -40,10 +40,11 @@ sapply(list.files(pattern="DataCleaning.R$", path="../MyScripts/", full.names=TR
       wpływającą na zachowanie zmiennej zależnej.
 4. Podział zbioru na dane treningowe i testowe
     + Podzieliłem zbiór na dane treningowe i testowe (odpowiednio 0.7 i 0.3 wszystkich obserwac)
-4. Przetestowane modele:
+5. Przetestowane modele:
     + Regresja liniowa
     + Random Forest
     + Gradient Boosting
+6. Najlepszy model:
 
 
 # Import danych
