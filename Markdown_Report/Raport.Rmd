@@ -32,15 +32,18 @@ sapply(list.files(pattern="DataCleaning.R$", path="../MyScripts/", full.names=TR
 ```
 
 # Streszczenie analizy danych
-1. Zastąpienie artykułów brakujących
+1. Zastąpienie artykułów brakujących średnią arytmetyczną z wartości porzedniej i następnej.
 2. Sprawdzenie korelacji wśród zmiennych
-3. Zmienne wykorzystane w modelu
+    + Usunąłem zmienne (lcop1,lcop2,fbar), których korelacja była większa od 0.8
+3. Zmienne wykorzystane w modelu:  X,cfin1,cfin2,chel1,chel2,recr,cumf,totaln,sst,sal,xmonth,nao
+    + Pomijałem zmieną porządkową X, gdyż moim zdaniem kolejność wykonywania obserwacji nie powinna być przyczyną
+      wpływającą na zachowanie zmiennej zależnej.
 4. Podział zbioru na dane treningowe i testowe
+    + Podzieliłem zbiór na dane treningowe i testowe (odpowiednio 0.7 i 0.3 wszystkich obserwac)
 4. Przetestowane modele:
-
-+ Regresja liniowa
-+ Random Forest
-+ Gradient Boosting
+    + Regresja liniowa
+    + Random Forest
+    + Gradient Boosting
 
 
 # Import danych
@@ -191,6 +194,10 @@ gbmFit1 <- train(length~ .,
                  ## This last option is actually one
                  ## for gbm() that passes through
                  verbose = FALSE)
+
+Y_predictions<-predict(gbmFit1,newdata=test_set)
+paste("Prognoza na podstawie modelu")
+ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
 gbmFit1
 summary(gbmFit1)
 varImp(gbmFit1)
@@ -257,6 +264,7 @@ summary(fit)
 Y_predictions <- predict(fit, newdata = test_set)
 paste("Prognoza na podstawie modelu")
 ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
+summary(fit)
 varImp(fit)
 col_index <- varImp(fit)$importance %>% 
   mutate(names=row.names(.)) %>%
