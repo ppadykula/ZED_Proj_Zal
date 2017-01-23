@@ -1,0 +1,298 @@
+---
+title: "Przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie"
+author: "Piotr Padykuła"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r globalSettings, echo=FALSE, message=FALSE,include=F}
+
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(EDAWR)
+library(mlbench)
+library(caret)
+library(pROC)
+library(knitr)
+library(caTools)
+library(ggplot2)
+library(e1071)
+library(rpart)
+library(randomForest)
+library(gclus)
+#require(leaps)
+#require(MASS)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+#sapply(list.files(pattern="[.]R$", path="../MyScripts/", full.names=TRUE), source);
+sapply(list.files(pattern="DataCleaning.R$", path="../MyScripts/", full.names=TRUE), source);
+```
+
+# Streszczenie analizy danych
+1. Zastąpienie artykułów brakujących
+2. Sprawdzenie korelacji wśród zmiennych
+3. Zmienne wykorzystane w modelu
+4. Podział zbioru na dane treningowe i testowe
+4. Przetestowane modele:
+
++ Regresja liniowa
++ Random Forest
++ Gradient Boosting
+
+
+# Import danych
+```{r loadData,include=FALSE,cache=TRUE}
+#Import danych z pliku
+#df<-read.csv("C:\\MOJE_PLIKI\\Sem3_ZaawEksplDanych\\PROJEKT_2\\sledzie.csv")
+data<-read.csv("C:\\MOJE_PLIKI\\Sem3_ZaawEksplDanych\\PROJEKT_2\\sledzie.csv",stringsAsFactors = FALSE,na.strings = "?")
+```
+
+# Kompletność danych w zbiorze
+```{r completeCases,include=TRUE,cache=TRUE}
+str(data)
+str(data[complete.cases(data),])
+```
+
+# Brakujące wartości
+```{r missingValues,include=TRUE,cache=TRUE}
+sapply(data,function(x){sum(is.na(x))})
+head(data,n=5)
+ggplot(data=data,aes(x=X,y=length))+geom_line()
+```
+
+# Brakujące wartości zastąpiłem średnią z dwóch wartości sąsiednich tj. (X(n-1)+X(n+1))/2
+```{r missingValueReplacement,include=TRUE,cache=TRUE}
+mynames<-colnames(data)
+checkColumns<-sapply(data,function(x){sum(is.na(x))})
+for(i in seq_along(mynames)) 
+{
+  if(checkColumns[i]>0)
+  {
+    data[,i]<-replaceUnknown(data[,i])
+  }
+}
+```
+
+# Krótkie podsumowanie danych w zbiorze
+```{r dataSummary, cache=TRUE}
+data=tbl_df(data)
+kable(summary(data))
+kable(str(data))
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
+  geom_line(aes(x=X,y=cfin1),color="green")+geom_line(aes(x=X,y=cfin2),color="red")
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
+  geom_line(aes(x=X,y=chel1),color="green")+geom_line(aes(x=X,y=chel2),color="red")
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
+  geom_line(aes(x=X,y=lcop1),color="green")+geom_line(aes(x=X,y=lcop2),color="red")
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
+  geom_line(aes(x=X,y=fbar),color="green")+geom_line(aes(x=X,y=cumf),color="red")
+ggplot(data=data)+
+  geom_line(aes(x=X,y=recr),color="green")+geom_line(aes(x=X,y=totaln),color="red")
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
+  geom_line(aes(x=X,y=sst),color="green")+geom_line(aes(x=X,y=sal),color="red")
+ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+geom_line(aes(x=X,y=nao),color="red")
+
+ggplot(data=data)+geom_point(aes(x=X,y=length),color="blue")+geom_smooth()
+ggplot(data=data,aes(x=X,y=length))+geom_line() +ggtitle("Zmiany długości śledzia w badanym okresie")
+ggplot(data=data)+geom_density(aes(x=length),fill="blue") +ggtitle("Rozkład gęstości długości śledzia")
+ggplot(data=data)+geom_bar(aes(x=xmonth))  +xlab("Miesiąc") + ylab("Liczba obserwacji")+ ggtitle("Rozkład ilości obserwacji względem miesięcy")
+```
+
+# Korelacja w zbiorze danych
+Atrybuty skorelowane zostaną usunięte ze zbioru danych.
+W tym przypadku będą to: lcop1,lcop2,fbar. Ponadto w żadnym modelu nie będzie uwzględniania liczba porządkowa obserwacji,
+czyli X.
+```{r correlations, cache=TRUE}
+#X+length+cfin1+cfin2+chel1+chel2+lcop1+lcop2+fbar+recr+cumf+totaln+sst+sal+xmonth+nao
+corelationsData<-round(cor(data[,3:16,drop=T], method="pearson") ,2)
+str(data)
+corSample<- data[sample(1:nrow(data), 500, replace=FALSE),] 
+pairs(corSample)
+
+corelationsData<-cbind(corelationsData,rownames(corelationsData))
+corelationsData<-as.data.frame(corelationsData)
+corelationsData<-corelationsData %>% gather (AttributeName,Corelation,1:14)
+ggplot(data = corelationsData, aes(x=V15, y=AttributeName, fill = Corelation))+
+ geom_tile(color = "white")+
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed() + ggtitle("Korelacja wśród zmiennych") + xlab("Zmienna")+ylab("Zmienna")
+
+corelationsData<-corelationsData[corelationsData$Corelation>=0.7 & corelationsData$AttributeName!=corelationsData$V15,]
+colnames(corelationsData)<-c("Atrybut","Atrybut skorelowany","Współczynnik korelacji")
+kable(corelationsData)
+data <-data %>% select(c(-lcop1,-lcop2,-fbar))
+```
+
+# Podział zbioru danych na dane testowe i dane treningowe
+```{r datasetSplit, cache=TRUE}
+set.seed(23)
+#split=sample.split(data$length,SplitRatio = 0.75)
+#training_set<-subset(data,split==TRUE)
+#test_set<-subset(data,split==FALSE)
+
+partitionIndexes <- 
+    createDataPartition(
+        # atrybut do stratyfikacji
+        y = data$length,
+        # procent w zbiorze uczącym
+        p = .70,
+        # chcemy indeksy a nie listę
+        list = FALSE)
+
+training_set <- data[ partitionIndexes,]
+test_set  <- data[-partitionIndexes,]
+```
+
+# Normalizacja danych w zbiorze
+```{r normalization, cache=TRUE}
+set.seed(23)
+#training_set[,c(10,12)]<-scale(training_set[,c(10,12)])
+#test_set[,c(10,12)]<-scale(test_set[,c(10,12)])
+#colnames(training_set)
+```
+
+# Ustalenie zestawu zmiennych objaśnianych z wykorzystaniem podejścia opartym na Backword Elimination
+```{r mlr, cache=TRUE}
+mlregressor<-lm(formula = length~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao
+                ,data = training_set)
+summary(mlregressor)
+Y_predictions<-predict(mlregressor,newdata=test_set)
+```
+
+## Eliminacja zmiennej xmonth
+```{r mlr_xmonth, cache=TRUE}
+mlregressor<-lm(formula = length~cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+nao
+                ,data = training_set)
+summary(mlregressor)
+Y_predictions<-predict(mlregressor,newdata=test_set)
+paste("Prognoza na podstawie modelu")
+ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
+```
+
+
+# Gradient Boosting
+```{r gmb, cache=TRUE}
+set.seed(23)
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 5)
+gbmFit1 <- train(length~ ., 
+                 data = training_set, 
+                 method = "gbm", 
+                 trControl = fitControl,
+                 preProcess=c("scale","center"),
+                 ## This last option is actually one
+                 ## for gbm() that passes through
+                 verbose = FALSE)
+gbmFit1
+summary(gbmFit1)
+varImp(gbmFit1)
+```
+
+# Support Vector Regression
+```{r svr, cache=TRUE}
+svr_regressor<-svm(formula= length ~.,
+                   data = data,
+                   type='eps-regression')
+summary(svr_regressor)
+
+svr_regressor<-svm(formula= length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+sal,
+                   data = data,
+                   type='eps-regression')
+svr_regressor
+summary(svr_regressor)
+# set.seed(23)
+# fitControl <- trainControl(method = "repeatedcv",
+#                            number = 10,
+#                            repeats = 10,
+#                            ## Estimate class probabilities
+#                            classProbs = TRUE,
+#                            ## Evaluate performance using 
+#                            ## the following function
+#                            summaryFunction = twoClassSummary)
+# svmFit <- train(length ~ ., data = training_set, 
+#                  method = "svmRadial", 
+#                  trControl = fitControl, 
+#                  preProc = c("center", "scale"),
+#                  tuneLength = 8,
+#                  metric = "ROC")
+# svmFit   
+```
+
+# Random Forest
+```{r randomForest, cache=TRUE}
+set.seed(23)
+# rf_regressor<-randomForest(x=training_set[3:13],
+#                            y=training_set$length,
+#                            ntree=10)
+# 
+# Y_predictions<-predict(rf_regressor,newdata=test_set)
+# summary(rf_regressor)
+#reg1<-regsubsets(length ~ cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+nao,data = training_set, nvmax = 8)
+#summary(reg1)
+ctrl <- trainControl(
+    # powtórzona ocena krzyżowa
+    method = "repeatedcv",
+    # liczba podziałów
+    number = 2,
+    # liczba powtórzeń
+    repeats = 5)
+fit <- train(length ~ .,
+             data = training_set,
+             method = "rf",
+             trControl = ctrl,
+             preProcess=c("center","scale"),
+             # Paramter dla algorytmu uczącego
+             ntree = 50)
+fit
+summary(fit)
+
+Y_predictions <- predict(fit, newdata = test_set)
+paste("Prognoza na podstawie modelu")
+ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
+varImp(fit)
+col_index <- varImp(fit)$importance %>% 
+  mutate(names=row.names(.)) %>%
+  arrange(-Overall)
+imp_names <- col_index$names[1:3]
+```
+
+
+# Optymalizacja parametrów
+```{r RFOptimal, cache=TRUE}
+# rfGrid <- expand.grid(mtry = 10:30)
+# gridCtrl <- trainControl(
+#     method = "repeatedcv",
+#     summaryFunction = twoClassSummary,
+#     classProbs = FALSE,
+#     number = 2,
+#     repeats = 5)
+# 
+# set.seed(23)
+# fitTune <- train(length ~ cfin1+chel2+lcop1+fbar+recr+totaln+sst+sal+nao,
+#              data = training_set,
+#              method = "rf",
+#              metric = "ROC",
+#              preProc = c("center", "scale"),
+#              trControl = gridCtrl,
+#              tuneGrid = rfGrid,
+#              ntree = 30)
+```
+
+
+# Regresja za pomocą drzewa decyzyjne
+```{r decisionTree, cache=TRUE}
+regressor<-rpart(formula = length~.,
+                    data=training_set,
+                    control = rpart.control(minsplit = 1))
+regressor
+summary(regressor)
+```
+
