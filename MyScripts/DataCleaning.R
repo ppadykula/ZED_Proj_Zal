@@ -65,6 +65,9 @@ findPrevElement<-function(from,vector){
     vector[from-1]
   }
 }
-
+rmseCalc <- function(error)
+{
+  sqrt(mean(error^2))
+}
 
 

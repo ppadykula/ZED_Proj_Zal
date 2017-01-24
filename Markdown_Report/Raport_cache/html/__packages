@@ -3,6 +3,7 @@ plyr
 dplyr
 tidyr
 EDAWR
+mlbench
 lattice
 ggplot2
 caret
@@ -14,6 +15,6 @@ rpart
 randomForest
 cluster
 gclus
+kernlab
 survival
 gbm
-mlbench

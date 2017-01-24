@@ -22,7 +22,7 @@ library(e1071)
 library(rpart)
 library(randomForest)
 library(gclus)
-require(kernlab)
+library(kernlab)
 #require(leaps)
 #require(MASS)
 
@@ -32,7 +32,7 @@ knitr::opts_chunk$set(echo = TRUE)
 sapply(list.files(pattern="DataCleaning.R$", path="../MyScripts/", full.names=TRUE), source);
 ```
 
-# Streszczenie analizy danych
+# Streszczenie analizy danych 
 1. Zastąpienie artykułów brakujących średnią arytmetyczną z wartości porzedniej i następnej.
 2. Sprawdzenie korelacji wśród zmiennych
     + Usunąłem zmienne (lcop1,lcop2,fbar), których korelacja była większa od 0.8
@@ -71,7 +71,8 @@ str(data[complete.cases(data),])
 ```{r missingValues,include=TRUE,cache=TRUE}
 sapply(data,function(x){sum(is.na(x))})
 head(data,n=5)
-ggplot(data=data,aes(x=X,y=length))+geom_line()
+ggplot(data=data,aes(x=X,y=length))+geom_line()+geom_smooth(color="green") +ggtitle("Zmiany długości śledzia w analizowanym okresie")+xlab("Numer obserwacji")+ylab("Długość śledzia")
+ggplot(data=data)+geom_density(aes(x=length),fill="blue") +ggtitle("Rozkład gęstości długości śledzia")
 ```
 
 # Brakujące wartości zastąpiłem średnią z dwóch wartości sąsiednich tj. (X(n-1)+X(n+1))/2
@@ -106,9 +107,6 @@ ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+
   geom_line(aes(x=X,y=sst),color="green")+geom_line(aes(x=X,y=sal),color="red")
 ggplot(data=data)+geom_line(aes(x=X,y=length),color="blue")+geom_line(aes(x=X,y=nao),color="red")
 
-ggplot(data=data)+geom_point(aes(x=X,y=length),color="blue")+geom_smooth()
-ggplot(data=data,aes(x=X,y=length))+geom_line() +ggtitle("Zmiany długości śledzia w badanym okresie")
-ggplot(data=data)+geom_density(aes(x=length),fill="blue") +ggtitle("Rozkład gęstości długości śledzia")
 ggplot(data=data)+geom_bar(aes(x=xmonth))  +xlab("Miesiąc") + ylab("Liczba obserwacji")+ ggtitle("Rozkład ilości obserwacji względem miesięcy")
 ```
 
@@ -220,6 +218,7 @@ gbmFit <- train(length ~ cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth
                  preProcess=c("scale","center"),
                  ## This last option is actually one
                  ## for gbm() that passes through
+                 
                  verbose = FALSE)
 
 Y_predictions<-predict(gbmFit,newdata=test_set)
@@ -237,43 +236,50 @@ set.seed(23)
 #                    data = data,
 #                    type='eps-regression')
 # summary(svm_regressor)
+# bootControl <- trainControl(number = 2)
 
-svm_regressor<-svm(formula= length ~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao, 
-                   data = training_set,
-                   type='eps-regression')
-svm_regressor
-summary(svm_regressor)
-varImp(svm_regressor)
-Y_predictions <- predict(svm_regressor, newdata = test_set)
-paste("Prognoza na podstawie modelu")
-ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
+
+# svm_control <- trainControl(method="cv", number=2)
+# svmRadial_fit <- train(  length ~ cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao,
+#                          data=training_set, 
+#                          method="svmRadial", 
+#                          preProc=c("center", "scale"), 
+#                          trControl=svm_control)
+# svmRadial_fit
+# varImp(svmRadial_fit)
 
 # tuneResult <- tune.svm(length ~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao, data = training_set,
-#                 cost = (1:4), gamma = seq(0,3,0.5),epsilon = seq(0,1,0.2), kernel = "radial") 
-# tunedModel <- tuneResult$best.model
-# tunedModel <- predict(tunedModel, test_set) 
-control <- trainControl(method="repeatedcv", number=5, repeats=2)
-fit.svmRadial <- train(length ~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao,
-                       data=training_set, 
-                       method="svmRadial", 
-                       preProc=c("center", "scale"), 
-                       trControl=control)
-
-tuneResult <- tune(svm, length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+sal,  data = training_set,ranges = list(epsilon = seq(0,1,0.5), cost= 1:4))
+#                  cost = (1:2), gamma = c(1,2),epsilon = seq(0,0.5), kernel = "radial") 
 
 
-#obj <- tune.svm(length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+xmonth+sal, data = training_set, cost = 2^(1:4), gamma = seq(0,3,0.5),epsilon = seq(0,1,0.1), kernel = "radial") 
-#obj$best.performance
+svmRadial_fit<-svm(formula= length ~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao, 
+                    data = training_set,
+                    type='eps-regression')
+svmRadial_fit
+summary(svmRadial_fit)
 
-#tuneResult <- tune(svm,length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+xmonth+sal,  data = training_set,
- #             ranges = list(cost = 2^(1:4), gamma = seq(0,3,0.5),epsilon = seq(0,1,0.1)))
-#tunedModel <- tuneResult$best.model
+SVM_predictions <- predict(svmRadial_fit, newdata = test_set)
+paste("Prognoza na podstawie modelu")
+ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=SVM_predictions),color="red")
 
-# resamps <- resamples(list(GBM = gbmFit3,
-#                           SVM = svmFit,
-#                           RDA = rdaFit))
-# resamps
-  
+# # tuneResult <- tune.svm(length ~cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao, data = training_set,
+# #                 cost = (1:4), gamma = seq(0,3,0.5),epsilon = seq(0,1,0.2), kernel = "radial") 
+# # tunedModel <- tuneResult$best.model
+# # tunedModel <- predict(tunedModel, test_set) 
+# # tuneResult <- tune(svm, length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+sal,  data = training_set,ranges = list(epsilon = # #seq(0,1,0.5), cost= 1:4))
+# 
+# 
+# #obj <- tune.svm(length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+xmonth+sal, data = training_set, cost = 2^(1:4), gamma = #seq(0,3,0.5),epsilon = seq(0,1,0.1), kernel = "radial") 
+# #obj$best.performance
+# 
+# #tuneResult <- tune(svm,length ~cfin1+chel1+chel2+recr+cumf+totaln+sst+xmonth+sal,  data = training_set,
+#  #             ranges = list(cost = 2^(1:4), gamma = seq(0,3,0.5),epsilon = seq(0,1,0.1)))
+# #tunedModel <- tuneResult$best.model
+# 
+# # resamps <- resamples(list(GBM = gbmFit3,
+# #                           SVM = svmFit,
+# #                           RDA = rdaFit))
+# # resamps
 ```
 
 # Random Forest
@@ -285,24 +291,24 @@ ctrl <- trainControl(
     # powtórzona ocena krzyżowa
     method = "repeatedcv",
     # liczba podziałów
-    number = 2,
+    number = 4,
     # liczba powtórzeń
-    repeats = 5)
-RF_fit <- train(length ~ cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao,
+    repeats = 2)
+rf_fit <- train(length ~ cfin1+cfin2+chel1+chel2+recr+cumf+totaln+sst+sal+xmonth+nao,
              data = training_set,
              method = "rf",
              trControl = ctrl,
              preProcess=c("center","scale"),
              importance=T,
              # Paramter dla algorytmu uczącego
-             ntree = 50)
-RF_fit
-summary(RF_fit)
-varImp(RF_fit)
+             ntree = 150)
+rf_fit
+summary(rf_fit)
+varImp(rf_fit)
 
-Y_predictions <- predict(RF_fit, newdata = test_set)
+rf_fit.predictions <- predict(rf_fit, newdata = test_set)
 paste("Prognoza na podstawie modelu")
-ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=Y_predictions),color="red")
+ggplot(data=test_set)+geom_point(aes(x=X,y=length))+geom_line(aes(x=X,y=rf_fit.predictions),color="red")
  
 ```
 
