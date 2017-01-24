@@ -51,6 +51,7 @@ sapply(list.files(pattern="DataCleaning.R$", path="../MyScripts/", full.names=TR
 7. Wpływ na zmienną objaśnianą
     + Największy wpływ na zmienną objaśnianą miał czynnik SST (temperatura przy powierzchni wody [°C])
     Śledz zaczął maleć w głównej mierze ze względu na wzrost temperatury przy powierzchni wody.
+8.  R2 i RMSE były na poziomie odpowiednio 1.3 i 0.55 dla najlepszego modelu
 
 
 # Import danych
