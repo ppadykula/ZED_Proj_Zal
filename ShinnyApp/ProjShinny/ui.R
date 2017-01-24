@@ -13,7 +13,7 @@ library(shiny)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("Old Faithful Geyser Data"),
+  titlePanel("Przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie"),
   
   # Sidebar with a slider input for number of bins 
   sidebarLayout(
@@ -23,7 +23,7 @@ shinyUI(fluidPage(
                    min = 1,
                    max = 50,
                    value = 30)
-    ),
+                  ),
     
     # Show a plot of the generated distribution
     mainPanel(
